@@ -4,12 +4,14 @@ package com.localmind.memory;
 import java.time.Instant;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
 @Table(name = "memory")
 @Getter
+@Data
 @Setter
 public class MemoryEntity {
 
