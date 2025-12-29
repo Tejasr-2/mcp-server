@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: mcp-server
+  datasource:
+    url: jdbc:sqlite:D:/mcp-server/data/memory.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  sql:
+    init:
+      mode: never
