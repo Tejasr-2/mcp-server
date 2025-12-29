@@ -3,9 +3,13 @@ package com.localmind.service;
 import com.localmind.memory.MemoryEntity;
 import com.localmind.memory.MemoryRepository;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class MemoryTool {
+
+    private static final Logger logger = LoggerFactory.getLogger(MemoryTool.class);
 
     private final MemoryRepository repository;
 
@@ -14,6 +18,7 @@ public class MemoryTool {
     }
 
     public void save(String type, String content) {
+        logger.info("MemoryTool.save called with type={}, content={}", type, content);
         MemoryEntity saved = repository.save(new MemoryEntity(type, content));
 
         try {
@@ -27,11 +32,11 @@ public class MemoryTool {
             String stdout = new String(p.getInputStream().readAllBytes());
             String stderr = new String(p.getErrorStream().readAllBytes());
 
-            System.out.println("FAISS STDOUT: " + stdout);
-            System.err.println("FAISS STDERR: " + stderr);
+            logger.debug("FAISS STDOUT: {}", stdout);
+            logger.error("FAISS STDERR: {}", stderr);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error saving memory", e);
         }
     }
 }

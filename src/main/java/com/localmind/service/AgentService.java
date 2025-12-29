@@ -8,24 +8,30 @@ import com.localmind.agent.PromptBuilder;
 import com.localmind.agent.SystemPrompt;
 import org.springframework.stereotype.Service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Map;
 
 @Service
 public class AgentService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AgentService.class);
+
     private final OllamaClient ollamaClient;
     private final MemoryTool memoryTool;
-    private final SemanticRecallService semanticRecallService;
+    private final HybridRecallService hybridRecallService;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public AgentService(OllamaClient ollamaClient, MemoryTool memoryTool, SemanticRecallService semanticRecallService) {
+    public AgentService(OllamaClient ollamaClient, MemoryTool memoryTool, HybridRecallService hybridRecallService) {
         this.ollamaClient = ollamaClient;
         this.memoryTool = memoryTool;
-        this.semanticRecallService = semanticRecallService;
+        this.hybridRecallService = hybridRecallService;
     }
 
     public Map<String, Object> handle(String userMessage) {
+        logger.info("AgentService.handle called with userMessage: {}", userMessage);
 
         // 1. HARD RULE: remember intent
         if (IntentDetector.isRememberIntent(userMessage)) {
@@ -50,8 +56,10 @@ public class AgentService {
                         });
 
                 String memoryText = parsed.get("memory");
+                logger.info("Extracted memoryText: {}", memoryText);
 
                 memoryTool.save("FACT", memoryText);
+                logger.info("Memory saved via memoryTool");
 
                 return Map.of(
                         "type", "message",
@@ -59,6 +67,7 @@ public class AgentService {
                 );
 
             } catch (Exception e) {
+                logger.error("Failed to save memory", e);
                 return Map.of(
                         "type", "message",
                         "content", "Failed to save memory."
@@ -67,17 +76,22 @@ public class AgentService {
         }
 
         // 2. Normal agent flow
-        String memoryContext = semanticRecallService.recall(userMessage);
+        String memoryContext = hybridRecallService.recall(userMessage);
+        logger.info("Memory context for agent: {}", memoryContext);
         String prompt = PromptBuilder.build(memoryContext, userMessage);
-
+        logger.info("Built prompt: {}", prompt);
         String raw = ollamaClient.generate(prompt);
+        logger.info("Raw model response: {}", raw);
         String sanitized = JsonSanitizer.sanitize(raw);
-
+        logger.info("Sanitized model response: {}", sanitized);
         try {
-            return mapper.readValue(sanitized,
+            Map<String, Object> result = mapper.readValue(sanitized,
                     new TypeReference<Map<String, Object>>() {
                     });
+            logger.info("Parsed model response: {}", result);
+            return result;
         } catch (Exception e) {
+            logger.error("Model returned invalid output", e);
             return Map.of(
                     "type", "message",
                     "content", "Model returned invalid output."
