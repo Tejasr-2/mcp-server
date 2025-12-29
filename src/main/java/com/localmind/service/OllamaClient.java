@@ -23,7 +23,6 @@ public class OllamaClient {
                 .retrieve()
                 .bodyToMono(OllamaResponse.class)
                 .block();
-
-        return res.response();
+    return res.response();
     }
 }

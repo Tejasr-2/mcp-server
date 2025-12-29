@@ -1,32 +1,25 @@
 package com.localmind.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.localmind.agent.SystemPrompt;
+import com.localmind.service.AgentService;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.localmind.service.OllamaClient;
-
 @RestController
+@RequestMapping("/chat")
 public class ChatController {
 
-@Autowired
-OllamaClient ollamaClient;
-    
-@PostMapping("/chat")
-public String chat(@RequestBody Map<String, String> req) {
-    String userMessage = req.get("message");
+    private final AgentService agentService;
 
-    String prompt = """
-    You are LocalMind, a local personal AI.
-    Respond concisely.
+    public ChatController(AgentService agentService) {
+        this.agentService = agentService;
+    }
 
-    User: %s
-    """.formatted(userMessage);
-
-    return ollamaClient.generate(prompt);
-}
-
+    @PostMapping
+    public Map<String, Object> chat(@RequestBody Map<String, String> body) {
+        String userMessage = body.get("message");
+        return agentService.handle(userMessage);
+    }
 }
