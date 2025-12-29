@@ -2,6 +2,7 @@ package com.localmind.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.localmind.agent.IntentDetector;
 import com.localmind.agent.JsonSanitizer;
 import com.localmind.agent.PromptBuilder;
 import com.localmind.agent.SystemPrompt;
@@ -14,42 +15,72 @@ public class AgentService {
 
     private final OllamaClient ollamaClient;
     private final MemoryTool memoryTool;
-    private final MemoryRecallService memoryRecallService;
+    private final SemanticRecallService semanticRecallService;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public AgentService(OllamaClient ollamaClient, MemoryTool memoryTool, MemoryRecallService memoryRecallService) {
+    public AgentService(OllamaClient ollamaClient, MemoryTool memoryTool, SemanticRecallService semanticRecallService) {
         this.ollamaClient = ollamaClient;
         this.memoryTool = memoryTool;
-        this.memoryRecallService = memoryRecallService;
+        this.semanticRecallService = semanticRecallService;
     }
 
     public Map<String, Object> handle(String userMessage) {
 
-        // 1. Recall memory
-        String memoryContext = memoryRecallService.recallAsText();
+        // 1. HARD RULE: remember intent
+        if (IntentDetector.isRememberIntent(userMessage)) {
 
-        // 2. Build prompt with memory
+            // Ask LLM ONLY to extract memory
+            String extractionPrompt = """
+                    You are extracting memory content.
+                    
+                    User input:
+                    %s
+                    
+                    Respond ONLY in JSON:
+                    { "memory": "<text to store>" }
+                    """.formatted(userMessage);
+
+            String raw = ollamaClient.generate(extractionPrompt);
+            String sanitized = JsonSanitizer.sanitize(raw);
+
+            try {
+                Map<String, String> parsed =
+                        mapper.readValue(sanitized, new TypeReference<>() {
+                        });
+
+                String memoryText = parsed.get("memory");
+
+                memoryTool.save("FACT", memoryText);
+
+                return Map.of(
+                        "type", "message",
+                        "content", "Saved to memory."
+                );
+
+            } catch (Exception e) {
+                return Map.of(
+                        "type", "message",
+                        "content", "Failed to save memory."
+                );
+            }
+        }
+
+        // 2. Normal agent flow
+        String memoryContext = semanticRecallService.recall(userMessage);
         String prompt = PromptBuilder.build(memoryContext, userMessage);
-        System.out.println("Prompt" + prompt);
-        // 3. Call model
+
         String raw = ollamaClient.generate(prompt);
         String sanitized = JsonSanitizer.sanitize(raw);
-        System.out.println("Sanitised Response" + sanitized);
 
         try {
-            Map<String, Object> json =
-                    mapper.readValue(sanitized, new TypeReference<>() {});
-
-            if ("tool_call".equals(json.get("type"))) {
-                return handleTool(json);
-            }
-
-            return json;
-
+            return mapper.readValue(sanitized,
+                    new TypeReference<Map<String, Object>>() {
+                    });
         } catch (Exception e) {
             return Map.of(
                     "type", "message",
-                    "content", "Memory recall failed due to invalid model output."
+                    "content", "Model returned invalid output."
             );
         }
     }

@@ -1,17 +1,9 @@
 package com.localmind.memory;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "memory")
-@Data
-@Getter
-@NoArgsConstructor
-@AllArgsConstructor
 public class MemoryEntity {
 
     @Id
@@ -19,7 +11,7 @@ public class MemoryEntity {
     private Long id;
 
     @Column(nullable = false)
-    private String type; // FACT, PROJECT, PREFERENCE
+    private String type;
 
     @Column(nullable = false, length = 4000)
     private String content;
@@ -27,9 +19,46 @@ public class MemoryEntity {
     @Column(nullable = false)
     private Long createdAtEpoch;
 
+    public MemoryEntity() {
+    }
+
     public MemoryEntity(String type, String content) {
         this.type = type;
         this.content = content;
         this.createdAtEpoch = System.currentTimeMillis();
+    }
+
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public Long getCreatedAtEpoch() {
+        return createdAtEpoch;
+    }
+
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public void setCreatedAtEpoch(Long createdAtEpoch) {
+        this.createdAtEpoch = createdAtEpoch;
     }
 }

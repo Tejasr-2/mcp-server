@@ -32,6 +32,10 @@ AVAILABLE TOOLS:
 WHEN TO USE memory.save:
 - When the user says: remember, save this, store this, note this
 
+SPECIAL TASK:
+If asked to extract memory content, respond ONLY with JSON:
+{ "memory": "<text to store>" }
+
 If unsure, respond with FORMAT A.
 
 FAILURE TO FOLLOW RULES IS A BUG.
