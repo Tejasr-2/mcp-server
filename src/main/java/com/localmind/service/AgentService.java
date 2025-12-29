@@ -3,6 +3,7 @@ package com.localmind.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.localmind.agent.JsonSanitizer;
+import com.localmind.agent.PromptBuilder;
 import com.localmind.agent.SystemPrompt;
 import org.springframework.stereotype.Service;
 
@@ -13,29 +14,33 @@ public class AgentService {
 
     private final OllamaClient ollamaClient;
     private final MemoryTool memoryTool;
+    private final MemoryRecallService memoryRecallService;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public AgentService(OllamaClient ollamaClient, MemoryTool memoryTool) {
+    public AgentService(OllamaClient ollamaClient, MemoryTool memoryTool, MemoryRecallService memoryRecallService) {
         this.ollamaClient = ollamaClient;
         this.memoryTool = memoryTool;
+        this.memoryRecallService = memoryRecallService;
     }
 
     public Map<String, Object> handle(String userMessage) {
 
-        String prompt = SystemPrompt.PROMPT + "\nUser: " + userMessage;
-        String rawResponse = ollamaClient.generate(prompt);
-        System.out.println("Raw response: " + rawResponse);
-        String sanitized = JsonSanitizer.sanitize(rawResponse);
-        
+        // 1. Recall memory
+        String memoryContext = memoryRecallService.recallAsText();
 
+        // 2. Build prompt with memory
+        String prompt = PromptBuilder.build(memoryContext, userMessage);
+        System.out.println("Prompt" + prompt);
+        // 3. Call model
+        String raw = ollamaClient.generate(prompt);
+        String sanitized = JsonSanitizer.sanitize(raw);
+        System.out.println("Sanitised Response" + sanitized);
 
         try {
             Map<String, Object> json =
-            mapper.readValue(sanitized, new TypeReference<>() {});
+                    mapper.readValue(sanitized, new TypeReference<>() {});
 
-            String type = (String) json.get("type");
-
-            if ("tool_call".equals(type)) {
+            if ("tool_call".equals(json.get("type"))) {
                 return handleTool(json);
             }
 
@@ -44,10 +49,11 @@ public class AgentService {
         } catch (Exception e) {
             return Map.of(
                     "type", "message",
-                    "content", "Sorry, I produced invalid output. Please retry."
+                    "content", "Memory recall failed due to invalid model output."
             );
         }
     }
+
 
     private Map<String, Object> handleTool(Map<String, Object> json) {
 

@@ -1,18 +1,17 @@
-
 package com.localmind.memory;
 
-import java.time.Instant;
-
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
-import lombok.Setter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "memory")
-@Getter
 @Data
-@Setter
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class MemoryEntity {
 
     @Id
@@ -26,15 +25,11 @@ public class MemoryEntity {
     private String content;
 
     @Column(nullable = false)
-    private Instant createdAt = Instant.now();
-
-    public MemoryEntity() {}
+    private Long createdAtEpoch;
 
     public MemoryEntity(String type, String content) {
         this.type = type;
         this.content = content;
-        this.createdAt = Instant.now();
+        this.createdAtEpoch = System.currentTimeMillis();
     }
 }
-
-

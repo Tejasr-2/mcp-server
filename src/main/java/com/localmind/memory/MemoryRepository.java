@@ -7,11 +7,14 @@ import java.util.List;
 public interface MemoryRepository extends JpaRepository<MemoryEntity, Long> {
 
     // Latest memories
-    List<MemoryEntity> findTop20ByOrderByCreatedAtDesc();
+    List<MemoryEntity> findTop20ByOrderByCreatedAtEpoch();
 
     // Type-based memory
-    List<MemoryEntity> findByTypeOrderByCreatedAtDesc(String type);
+    List<MemoryEntity> findByTypeOrderByCreatedAtEpoch(String type);
 
     // Keyword search (simple, fast)
     List<MemoryEntity> findByContentContainingIgnoreCase(String keyword);
+
+    List<MemoryEntity> findTop10ByOrderByCreatedAtEpochDesc();
+
 }

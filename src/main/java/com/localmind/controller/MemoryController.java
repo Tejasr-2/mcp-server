@@ -32,7 +32,7 @@ public class MemoryController {
 
     @GetMapping("/recent")
     public List<MemoryEntity> recent() {
-        return repository.findTop20ByOrderByCreatedAtDesc();
+        return repository.findTop20ByOrderByCreatedAtEpoch();
     }
 
 }
