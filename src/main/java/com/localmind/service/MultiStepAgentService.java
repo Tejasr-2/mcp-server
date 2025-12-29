@@ -3,10 +3,9 @@ package com.localmind.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.localmind.agent.StepStrategy;
-import com.localmind.agent.SystemPrompt;
-import com.localmind.agent.JsonSanitizer;
+import com.localmind.agent.*;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
@@ -121,5 +120,80 @@ public class MultiStepAgentService {
 
         return StepStrategy.FREE_REASONING;
     }
+
+    public Flux<String> runStreaming(
+            String memoryContext,
+            String userMessage
+    ) {
+
+        boolean rememberIntent =
+                IntentDetector.isRememberIntent(userMessage);
+
+        StepStrategy strategy =
+                decideStrategy(rememberIntent, memoryContext);
+
+        boolean memorySaved = false;
+
+        String conversation = PromptBuilder.build(
+                memoryContext,
+                userMessage,
+                rememberIntent
+        );
+
+        for (int step = 1; step <= MAX_STEPS; step++) {
+
+            // 🔴 Use blocking call for reasoning steps
+            String raw = ollamaClient.generate(conversation);
+            String clean = JsonSanitizer.sanitize(raw);
+
+            Map<String, Object> response;
+            try {
+                response = mapper.readValue(clean, Map.class);
+            } catch (Exception e) {
+                return Flux.just("Internal error.");
+            }
+
+            String type = (String) response.get("type");
+
+            if ("thought".equals(type)) {
+                conversation += "\nASSISTANT (thought): "
+                        + response.get("content");
+                continue;
+            }
+
+            if ("tool_call".equals(type)) {
+                if ("memory.save".equals(response.get("tool"))) {
+                    Map<String, Object> args =
+                            (Map<String, Object>) response.get("args");
+
+                    memoryTool.save(
+                            (String) args.get("type"),
+                            (String) args.get("content")
+                    );
+
+                    memorySaved = true;
+                    conversation += "\nOBSERVATION: Memory saved.";
+                    continue;
+                }
+            }
+
+            if ("final".equals(type)) {
+
+                if (strategy == StepStrategy.TOOL_REQUIRED && !memorySaved) {
+                    conversation += """
+                            SYSTEM OVERRIDE:
+                            You must call memory.save before answering.
+                            """;
+                    continue;
+                }
+
+                // 🚀 STREAM FINAL RESPONSE
+                return ollamaClient.generateStream(conversation);
+            }
+        }
+
+        return Flux.just("Unable to complete request.");
+    }
+
 
 }
